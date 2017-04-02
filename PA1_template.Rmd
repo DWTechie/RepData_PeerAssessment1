@@ -1,25 +1,93 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research - Course Project 1"
+author: "Daniel Wollmann"
+date: "April 1, 2017"
+output: html_document
 ---
+```{r}
+```
+# Course Project 1 - Reproducible Research Week 2
+##Initialization, Data Extract, Load and Transformation
+This project uses libraries Lattice for plots and plyr for data operations for a few lines of code.
+During initialization, all data is loaded, data conversions are completed.
 
+```{r}
+library(lattice)
+library(plyr)
+dir <- "C:/Users/danielsw/OneDrive/Data Science Specialization/ReproducibleResearchWeek2/RepData_PeerAssessment1"
+setwd(dir)
+Data <- read.csv("activity.csv")
+```
 
-## Loading and preprocessing the data
+## What is the mean total number os steps taken per day?
+For this question, we use hte function aggregate to sum the number of steps by date. In the sequence, we calculate the mean and median of the aggregated data.
+```{r}
+StepsPerDay <- aggregate(steps ~ date, Data, sum)
+StepsMean <- mean(StepsPerDay$steps)
+StepsMedian <- median(StepsPerDay$steps)
+```
 
+Based on the aggregated data, we can plot a chart showing the frequency of the number of steps per day. The mean of the distribution is `r StepsMean` and the median is `r StepsMedian`.
 
-
-## What is mean total number of steps taken per day?
-
-
+```{r}
+histogram(StepsPerDay$steps)
+```
 
 ## What is the average daily activity pattern?
+Based on the time interval of the data sample, we can show the intervals with more or less activity. First step is to aggregate the mean of the steps per interval.
+```{r}
+StepsByIntervalMean <- aggregate(steps ~ interval, Data, mean)
+```
+
+Followed by plotting the distribution in a time series.
+```{r}
+xyplot(steps ~ interval, StepsByIntervalMean, type="l")
+```
+
+The maximum number of steps is `r max(StepsByIntervalMean$steps)`.
+
+## Inputting missing values
+The data samples has multiple rows with missing steps data that can impact the analysis. Based on that we can normalize the data by replacing NA values with the mean of the values for the same interval.
+First step is to calculate the number of rows with missing data. In the dataset there are `r sum(is.na(Data))` rows with missing steps data.
+
+To replace the missing values we will copy the dataset and then via a loop indentify the rows with missing steps. Once a row is identified, we collect the interval number and calculate the mean of the steps from the same time interval. Finally, the values are replaced with the mean.
+```{r} 
+CleanData <- Data
+MaxRows <- nrow(Data)
+index <- 1
+while(index <= MaxRows){
+    if(is.na(Data$steps[index])){
+        CleanData$steps[index] <- StepsByIntervalMean$steps[which(StepsByIntervalMean$interval==Data$interval[index])]
+    }
+  index <- index + 1
+}  
+StepsPerDay <- aggregate(steps ~ date,CleanData, sum, na.rm=TRUE)
+```
+Now, with a clean dataset, we can plot a histogram showing the total steps per day and interval. The mean of the distribution is `r mean(StepsPerDay$steps)` and the median is `r median(StepsPerDay$steps)`.
+
+```{r}
+histogram(StepsPerDay$steps)
+```
+
+## Are there any difference in the activity pattern between weekends and weekdays?
+For this analysis we create a new column in the dataset to categorize if the activity falls in a weekday or weekend. To achieve that, I created a function ifelse to get the number of the weekday, and then using sapply we update the column with the type of day. Once that is completed, the data is aggregated in 3 columns, mean of steps by interval, interval number and type of day.
+
+```{r}
+CleanData$date <- as.Date.POSIXct(CleanData$date)
+
+DayType <- function(v_date){
+  d <- as.POSIXlt(as.Date(v_date))$wday
+  return( ifelse(d==0||d==6,"Weekend","Weekday"))
+}
+CleanData$WeekTypeDay <- as.factor(sapply(Data$date, DayType))
+StepsByIntervalWeekType <- aggregate(steps ~ interval + WeekTypeDay, CleanData, mean, na.rm=TRUE)
+```
+Now that we have the right aggregation, we can plot the data in a panel to compare activity levels between weekdays and weekends.
+
+```{r}
+xyplot(steps ~ interval | WeekTypeDay, data=StepsByIntervalWeekType, type="l")
+```
 
 
 
-## Imputing missing values
 
-
-
-## Are there differences in activity patterns between weekdays and weekends?
